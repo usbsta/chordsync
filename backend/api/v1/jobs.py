@@ -281,7 +281,30 @@ async def submit_from_search(
 
 @router.get("/{job_id}", response_model=JobResponse)
 async def get_job(job_id: str) -> JobResponse:
-    """Poll the status of a processing job."""
-    if job_id not in _jobs:
-        raise HTTPException(status_code=404, detail="Job not found.")
-    return _jobs[job_id]
+    """Poll the status of a processing job.
+
+    Checks in-memory store first; falls back to disk (result.json) so that
+    completed jobs survive a server restart.
+    """
+    if job_id in _jobs:
+        return _jobs[job_id]
+
+    # Try to recover a completed job from disk
+    result_path = Path(settings.storage_path) / job_id / "result.json"
+    if result_path.exists():
+        try:
+            result = JobResult.model_validate_json(result_path.read_text())
+            job = JobResponse(job_id=job_id, status=JobStatus.done, result=result)
+            _jobs[job_id] = job  # cache it back in memory
+            return job
+        except Exception:
+            pass
+
+    # If the job directory exists but no result, the server restarted mid-process
+    job_dir = Path(settings.storage_path) / job_id
+    if job_dir.exists():
+        job = JobResponse(job_id=job_id, status=JobStatus.failed, error="Server restarted during processing — please try again.")
+        _jobs[job_id] = job
+        return job
+
+    raise HTTPException(status_code=404, detail="Job not found.")
