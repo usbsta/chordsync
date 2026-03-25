@@ -51,7 +51,8 @@ def download_audio(artist: str, title: str, output_dir: str) -> tuple[str, str, 
     cookies_file = _write_cookies_file()
 
     ydl_opts = {
-        "format": "bestaudio/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best",
+        "format": "bestaudio/best",
+        "format_sort": ["abr", "asr", "vbr", "tbr"],
         "outtmpl": str(out_dir / "upload.%(ext)s"),
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
