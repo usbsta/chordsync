@@ -1,4 +1,6 @@
+import os
 import re
+import tempfile
 from pathlib import Path
 
 try:
@@ -6,6 +8,22 @@ try:
     _YTDLP_AVAILABLE = True
 except ImportError:
     _YTDLP_AVAILABLE = False
+
+
+def _write_cookies_file() -> str | None:
+    """
+    Write YouTube cookies from the YOUTUBE_COOKIES env var to a temp file.
+    yt-dlp requires cookies as a file path, not a string.
+    Returns the temp file path, or None if no cookies are configured.
+    """
+    cookies_content = os.getenv("YOUTUBE_COOKIES", "").strip()
+    if not cookies_content:
+        return None
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
+    tmp.write(cookies_content)
+    tmp.flush()
+    tmp.close()
+    return tmp.name
 
 
 def download_audio(artist: str, title: str, output_dir: str) -> tuple[str, str, str]:
@@ -30,6 +48,8 @@ def download_audio(artist: str, title: str, output_dir: str) -> tuple[str, str, 
 
     video_info: dict = {}
 
+    cookies_file = _write_cookies_file()
+
     ydl_opts = {
         "format": "bestaudio/best",
         "outtmpl": str(out_dir / "upload.%(ext)s"),
@@ -41,6 +61,9 @@ def download_audio(artist: str, title: str, output_dir: str) -> tuple[str, str, 
         "quiet": True,
         "no_warnings": True,
     }
+
+    if cookies_file:
+        ydl_opts["cookiefile"] = cookies_file
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         # extract_info with download=False first to grab metadata, then download
