@@ -1,5 +1,11 @@
 import re
-import whisper
+
+try:
+    import whisper as _whisper
+    _WHISPER_AVAILABLE = True
+except ImportError:
+    _whisper = None  # type: ignore
+    _WHISPER_AVAILABLE = False
 
 from config import settings
 from models.job import ChordEvent, WordEvent
@@ -305,13 +311,15 @@ def _attach_newline_markers(
         ))
     return result
 
-_whisper_model: whisper.Whisper | None = None
+_whisper_model: object | None = None
 
 
-def _get_model() -> whisper.Whisper:
+def _get_model() -> object:
     global _whisper_model
+    if not _WHISPER_AVAILABLE:
+        raise RuntimeError("openai-whisper is not installed on this server.")
     if _whisper_model is None:
-        _whisper_model = whisper.load_model(settings.whisper_model)
+        _whisper_model = _whisper.load_model(settings.whisper_model)
     return _whisper_model
 
 
@@ -324,8 +332,12 @@ def transcribe_audio(wav_path: str, lyrics_hint: str | None = None) -> list[Word
     correct words and dramatically improves accuracy — Whisper follows the
     provided text instead of guessing from audio alone.
 
-    Returns a list of WordEvent with start/end times per word.
+    Returns an empty list when Whisper is not installed (slim deploy).
     """
+    if not _WHISPER_AVAILABLE:
+        print("[transcription] Whisper not available — returning empty transcript")
+        return []
+
     model = _get_model()
 
     kwargs: dict = {
