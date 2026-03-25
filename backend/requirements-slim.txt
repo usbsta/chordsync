@@ -1,0 +1,32 @@
+# Slim requirements for server deployment (no heavy ML).
+# The happy path (UG chords + Musixmatch LRC) works entirely from web data —
+# Demucs, Whisper, stable-ts, and madmom are NOT needed on the server.
+# For the fallback path (chord detection on raw audio), librosa is used.
+
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+
+# Audio loading + duration (fallback chord detection uses librosa)
+librosa==0.10.2
+soundfile==0.12.1
+numpy>=2.0.0
+
+# Pydantic
+pydantic>=2.7.0
+pydantic-settings>=2.2.1
+
+# Synced lyrics (Musixmatch, LRCLib, NetEase)
+syncedlyrics
+
+# Chord + lyrics lookup from web (UG, AZLyrics, lyrics.ovh)
+requests
+beautifulsoup4
+
+# YouTube audio download
+yt-dlp
+
+# Utilities
+python-dotenv==1.0.1
+aiofiles==23.2.1

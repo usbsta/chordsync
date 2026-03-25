@@ -1,0 +1,37 @@
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9    # required for file uploads in FastAPI
+
+# Audio processing
+librosa==0.10.2
+soundfile==0.12.1
+numpy>=2.0.0
+
+# Lyrics transcription + forced alignment
+openai-whisper==20250625
+stable-ts>=2.17.0          # forced alignment: aligns known text to audio (much faster than transcription)
+
+# Pydantic for request/response schemas
+pydantic>=2.7.0
+pydantic-settings>=2.2.1
+
+# Source separation (guitar, vocals, drums, bass isolation)
+demucs
+
+# Song identification (Shazam engine, no API key needed)
+ShazamIO
+
+# Synced lyrics (Musixmatch, LRCLib, NetEase — LRC format with timestamps)
+syncedlyrics
+
+# Chord lookup from web
+requests
+beautifulsoup4
+
+# YouTube audio download
+yt-dlp
+
+# Utilities
+python-dotenv==1.0.1
+aiofiles==23.2.1
