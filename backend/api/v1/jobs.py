@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, File
 
 from config import settings
-from models.job import JobResponse, JobResult, JobStatus, SongInfo
+from models.job import ChordEvent, JobResponse, JobResult, JobStatus, SongInfo
 from utils.audio import get_audio_duration, prepare_audio, validate_file_size
 from services.chord_detection import detect_chords
 from services.transcription import (
@@ -142,13 +142,18 @@ def _run_pipeline(job_id: str, upload_path: str, artist: str = "", title: str = 
             words, chords = build_events_from_ug_and_lrc(ug_pairs, lrc_lyrics, duration)
 
         elif lrc_lyrics:
-            print(f"[{job_id}] LRC path: synced lyrics + audio chord boundaries")
-            words  = parse_lrc(lrc_lyrics, duration)
-            chord_source = _mix_stems_for_chords(stem_paths, job_id, fallback_wav=wav_path)
+            words = parse_lrc(lrc_lyrics, duration)
             if web_sequence:
-                audio_events = detect_chords(chord_source)
-                chords = apply_web_chords(audio_events, web_sequence)
+                # Distribute web chord names evenly — no audio ML needed
+                print(f"[{job_id}] LRC path: synced lyrics + web chord names (no audio ML)")
+                step = duration / len(web_sequence) if web_sequence else 0.0
+                chords = [
+                    ChordEvent(time=round(i * step, 3), chord=c)
+                    for i, c in enumerate(web_sequence)
+                ]
             else:
+                print(f"[{job_id}] LRC path: synced lyrics + audio chord detection")
+                chord_source = _mix_stems_for_chords(stem_paths, job_id, fallback_wav=wav_path)
                 chords = detect_chords(chord_source)
 
         else:
