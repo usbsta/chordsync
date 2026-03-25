@@ -52,7 +52,7 @@ def download_audio(artist: str, title: str, output_dir: str) -> tuple[str, str, 
 
     ydl_opts = {
         "format": "bestaudio/best",
-        "format_sort": ["abr", "asr", "vbr", "tbr"],
+        "extractor_args": {"youtube": {"player_client": ["ios"]}},
         "outtmpl": str(out_dir / "upload.%(ext)s"),
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
