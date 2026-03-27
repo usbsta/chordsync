@@ -50,22 +50,28 @@ def download_audio(artist: str, title: str, output_dir: str) -> tuple[str, str, 
 
     cookies_file = _write_cookies_file()
 
+    # Try without cookies first using web_embedded (no PO token, no cookie conflicts).
+    # Cookies can interfere with web_embedded and cause it to return no audio formats.
+    # tv is only added as fallback when cookies are present (it needs them).
+    clients_no_cookies = ["web_embedded"]
+    clients_with_cookies = ["tv", "web_embedded"]
+
     ydl_opts = {
-        # tv client accepts cookies and requires no PO token.
-        # web_embedded is a no-token fallback for embeddable videos.
-        # android_vr is skipped when cookies are present (yt-dlp incompatibility).
-        # Node.js must be present in the container for yt-dlp to solve the
-        # YouTube signature/n-parameter JS challenges that decrypt download URLs.
-        "format": "bestaudio[ext=m4a]/bestaudio/best",
-        "extractor_args": {"youtube": {"player_client": ["tv", "web_embedded"]}},
+        "format": "bestaudio/best",
+        "extractor_args": {
+            "youtube": {
+                "player_client": clients_with_cookies if cookies_file else clients_no_cookies
+            }
+        },
         "outtmpl": str(out_dir / "upload.%(ext)s"),
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
             "preferredcodec": "wav",
             "preferredquality": "0",
         }],
-        "quiet": True,
-        "no_warnings": True,
+        "quiet": False,
+        "verbose": False,
+        "no_warnings": False,
     }
 
     if cookies_file:
