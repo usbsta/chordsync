@@ -24,8 +24,8 @@ syncedlyrics
 requests
 beautifulsoup4
 
-# YouTube audio download
-yt-dlp
+# YouTube audio download — pin to a recent release; YouTube fixes ship frequently
+yt-dlp>=2025.5.22
 
 # Utilities
 python-dotenv==1.0.1

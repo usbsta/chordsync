@@ -7,7 +7,8 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     libsndfile1 \
     nodejs \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && (ln -sf /usr/bin/nodejs /usr/local/bin/node 2>/dev/null || true)
 
 WORKDIR /app
 
