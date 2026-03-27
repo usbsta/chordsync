@@ -48,6 +48,8 @@ def download_audio(artist: str, title: str, output_dir: str) -> tuple[str, str, 
 
     video_info: dict = {}
 
+    cookies_file = _write_cookies_file()
+
     # mweb + cookies + bgutil PO token: the most reliable combination for cloud servers.
     # - cookies: authenticate the session so YouTube doesn't show bot-check interstitials
     # - bgutil: provides the PO token that mweb requires to access audio formats
