@@ -48,20 +48,16 @@ def download_audio(artist: str, title: str, output_dir: str) -> tuple[str, str, 
 
     video_info: dict = {}
 
-    # android_vr: no PO token, no signature solving required — returns format 18
-    # (360p video+audio) directly. Bypasses all JS challenge issues on cloud servers.
-    # Must NOT pass cookies — yt-dlp skips android_vr entirely when cookies are present.
-    #
-    # mweb + bgutil: fallback that uses the bgutil sidecar for PO token generation.
-    # bgutil handles PO tokens but not signature/n-challenge — mweb is secondary.
+    # mweb + cookies + bgutil PO token: the most reliable combination for cloud servers.
+    # - cookies: authenticate the session so YouTube doesn't show bot-check interstitials
+    # - bgutil: provides the PO token that mweb requires to access audio formats
+    # Without cookies, Railway IPs get bot-checked regardless of client.
     bgutil_url = os.getenv("BGUTIL_HTTP_API_URL", "http://localhost:4416")
 
     ydl_opts = {
-        # 18 = format ID for android_vr's combined audio+video (no URL decryption needed).
-        # bestaudio/best as fallback in case mweb resolves correctly with bgutil.
-        "format": "18/bestaudio/best",
+        "format": "bestaudio/best",
         "extractor_args": {
-            "youtube": {"player_client": ["android_vr", "mweb"]},
+            "youtube": {"player_client": ["mweb"]},
             "youtubepot-bgutilhttp": {"base_url": [bgutil_url]},
         },
         "outtmpl": str(out_dir / "upload.%(ext)s"),
@@ -73,7 +69,9 @@ def download_audio(artist: str, title: str, output_dir: str) -> tuple[str, str, 
         "quiet": True,
         "no_warnings": True,
     }
-    # Do not pass cookies — android_vr is skipped by yt-dlp when cookies are present.
+
+    if cookies_file:
+        ydl_opts["cookiefile"] = cookies_file
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         # extract_info with download=False first to grab metadata, then download
