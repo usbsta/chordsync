@@ -50,20 +50,48 @@ def download_audio(artist: str, title: str, output_dir: str) -> tuple[str, str, 
 
     cookies_file = _write_cookies_file()
 
+    # Log available formats from Railway so we can diagnose which clients/formats work.
+    # tv client requires cookies but no PO token — good for headless servers with cookies.
+    # web_embedded requires no PO token but only works for embeddable videos.
+    # android_vr requires no PO token but is erratic (may return only low-quality streams).
+    debug_opts: dict = {
+        "listformats": True,
+        "extractor_args": {"youtube": {"player_client": ["tv", "web_embedded", "android_vr"]}},
+        "quiet": False,
+        "no_warnings": False,
+    }
+    if cookies_file:
+        debug_opts["cookiefile"] = cookies_file
+
+    with yt_dlp.YoutubeDL(debug_opts) as ydl_debug:
+        try:
+            debug_info = ydl_debug.extract_info(query, download=False)
+            if debug_info and "entries" in debug_info and debug_info["entries"]:
+                entry = debug_info["entries"][0] or {}
+            else:
+                entry = debug_info or {}
+            formats = entry.get("formats", [])
+            print(f"[youtube] Available formats ({len(formats)}):")
+            for f in formats:
+                print(f"  id={f.get('format_id')} ext={f.get('ext')} "
+                      f"acodec={f.get('acodec')} vcodec={f.get('vcodec')} "
+                      f"abr={f.get('abr')} tbr={f.get('tbr')}")
+        except Exception as exc:
+            print(f"[youtube] Format listing failed: {exc}")
+
     ydl_opts = {
-        # web_embedded and android_vr do not require YouTube's PO token,
-        # which blocks ios/web clients on headless cloud servers (Railway, etc.).
-        # web_embedded covers most public songs; android_vr is the fallback.
-        "format": "bestaudio/best",
-        "extractor_args": {"youtube": {"player_client": ["web_embedded", "android_vr"]}},
+        # tv client accepts cookies and requires no PO token.
+        # web_embedded / android_vr are no-token fallbacks when cookies are absent.
+        "format": "bestaudio[ext=m4a]/bestaudio/best",
+        "extractor_args": {"youtube": {"player_client": ["tv", "web_embedded", "android_vr"]}},
         "outtmpl": str(out_dir / "upload.%(ext)s"),
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
             "preferredcodec": "wav",
             "preferredquality": "0",
         }],
-        "quiet": True,
-        "no_warnings": True,
+        "quiet": False,
+        "no_warnings": False,
     }
 
     if cookies_file:
