@@ -95,7 +95,8 @@ export default function Player({ audioUrl, result }: Props) {
 
   const [audioDuration, setAudioDuration] = useState<number>(result.duration ?? 0);
 
-  const hasStemsFallback = !result.stems;
+  // An empty stems object {} means Demucs was unavailable — treat as no stems
+  const hasStemsFallback = !result.stems || Object.keys(result.stems).length === 0;
   const currentTime = hasStemsFallback ? fallbackTime : player.currentTime;
   const duration    = hasStemsFallback ? audioDuration : player.duration;
   const playing     = hasStemsFallback ? fallbackPlaying : player.playing;
