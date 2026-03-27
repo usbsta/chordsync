@@ -93,9 +93,11 @@ export default function Player({ audioUrl, result }: Props) {
   const [fallbackTime, setFallbackTime]       = useState(0);
   const [fallbackPlaying, setFallbackPlaying] = useState(false);
 
+  const [audioDuration, setAudioDuration] = useState<number>(result.duration ?? 0);
+
   const hasStemsFallback = !result.stems;
   const currentTime = hasStemsFallback ? fallbackTime : player.currentTime;
-  const duration    = hasStemsFallback ? result.duration : player.duration;
+  const duration    = hasStemsFallback ? audioDuration : player.duration;
   const playing     = hasStemsFallback ? fallbackPlaying : player.playing;
 
   const lines = useRef<Line[]>([]);
@@ -111,16 +113,22 @@ export default function Player({ audioUrl, result }: Props) {
     if (!hasStemsFallback) return;
     const audio = audioRef.current;
     if (!audio) return;
-    const onTime  = () => setFallbackTime(audio.currentTime);
-    const onPlay  = () => setFallbackPlaying(true);
-    const onPause = () => setFallbackPlaying(false);
+    const onTime     = () => setFallbackTime(audio.currentTime);
+    const onPlay     = () => setFallbackPlaying(true);
+    const onPause    = () => setFallbackPlaying(false);
+    // Read duration from the audio element — result.duration may be absent or 0
+    const onMetadata = () => { if (audio.duration > 0) setAudioDuration(audio.duration); };
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
+    audio.addEventListener("loadedmetadata", onMetadata);
+    // Fire immediately if already loaded
+    if (audio.readyState >= 1 && audio.duration > 0) setAudioDuration(audio.duration);
     return () => {
       audio.removeEventListener("timeupdate", onTime);
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("loadedmetadata", onMetadata);
     };
   }, [hasStemsFallback]);
 
