@@ -51,8 +51,11 @@ def download_audio(artist: str, title: str, output_dir: str) -> tuple[str, str, 
     cookies_file = _write_cookies_file()
 
     ydl_opts = {
-        "format": "best[acodec!=none]/best",
-        "extractor_args": {"youtube": {"player_client": ["ios", "web"]}},
+        # web_embedded and android_vr do not require YouTube's PO token,
+        # which blocks ios/web clients on headless cloud servers (Railway, etc.).
+        # web_embedded covers most public songs; android_vr is the fallback.
+        "format": "bestaudio/best",
+        "extractor_args": {"youtube": {"player_client": ["web_embedded", "android_vr"]}},
         "outtmpl": str(out_dir / "upload.%(ext)s"),
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
