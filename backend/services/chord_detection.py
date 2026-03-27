@@ -150,7 +150,9 @@ def _detect_with_librosa(
       4. Template matching (cosine similarity) against major/minor templates
       5. Minimum duration gate — chords shorter than min_chord_duration are merged
     """
-    waveform, sr = librosa.load(wav_path, sr=None, mono=True)
+    # 22050 Hz is standard for chord detection and halves memory vs 44100 Hz originals.
+    # Railway Hobby has limited RAM — loading at native rate causes OOM kills.
+    waveform, sr = librosa.load(wav_path, sr=22050, mono=True)
     hop_length = int(hop_seconds * sr)
 
     harmonic, _ = librosa.effects.hpss(waveform, margin=3.0)
