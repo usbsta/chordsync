@@ -26,6 +26,9 @@ beautifulsoup4
 
 # YouTube audio download — pin to a recent release; YouTube fixes ship frequently
 yt-dlp>=2025.5.22
+# bgutil plugin: solves YouTube JS challenges + PO tokens via an external sidecar.
+# Requires the brainicism/bgutil-ytdlp-pot-provider Docker service running on BGUTIL_HTTP_API_URL.
+bgutil-ytdlp-pot-provider
 
 # Utilities
 python-dotenv==1.0.1

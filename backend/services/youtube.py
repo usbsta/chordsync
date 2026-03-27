@@ -50,18 +50,17 @@ def download_audio(artist: str, title: str, output_dir: str) -> tuple[str, str, 
 
     cookies_file = _write_cookies_file()
 
-    # Try without cookies first using web_embedded (no PO token, no cookie conflicts).
-    # Cookies can interfere with web_embedded and cause it to return no audio formats.
-    # tv is only added as fallback when cookies are present (it needs them).
-    clients_no_cookies = ["web_embedded"]
-    clients_with_cookies = ["tv", "web_embedded"]
+    # mweb requires a PO token but is the most reliable client for server-side
+    # downloads. The bgutil sidecar (brainicism/bgutil-ytdlp-pot-provider) solves
+    # both YouTube JS challenges and PO tokens automatically via the pip plugin.
+    # BGUTIL_HTTP_API_URL must point to the sidecar service (Railway internal URL).
+    bgutil_url = os.getenv("BGUTIL_HTTP_API_URL", "http://localhost:4416")
 
     ydl_opts = {
         "format": "bestaudio/best",
         "extractor_args": {
-            "youtube": {
-                "player_client": clients_with_cookies if cookies_file else clients_no_cookies
-            }
+            "youtube": {"player_client": ["mweb"]},
+            "youtubepot-bgutilhttp": {"base_url": [bgutil_url]},
         },
         "outtmpl": str(out_dir / "upload.%(ext)s"),
         "postprocessors": [{
@@ -69,9 +68,8 @@ def download_audio(artist: str, title: str, output_dir: str) -> tuple[str, str, 
             "preferredcodec": "wav",
             "preferredquality": "0",
         }],
-        "quiet": False,
-        "verbose": False,
-        "no_warnings": False,
+        "quiet": True,
+        "no_warnings": True,
     }
 
     if cookies_file:
