@@ -3,22 +3,34 @@
 import { useState, useCallback } from "react";
 import UploadZone from "@/components/UploadZone";
 import Player from "@/components/Player";
-import { submitJob, submitFromSearch, pollJob } from "@/lib/api";
+import { submitJob, pollJob } from "@/lib/api";
 import type { JobResult } from "@/lib/types";
 
-type Mode     = "search" | "upload";
 type AppState = "idle" | "loading" | "done" | "error";
 
 const LOADING_STEPS = [
-  { icon: "⬇️", msg: "Downloading audio from YouTube..." },
   { icon: "🎸", msg: "Separating guitar, vocals & drums..." },
   { icon: "🎵", msg: "Detecting chord progressions..." },
   { icon: "📝", msg: "Syncing lyrics to audio..." },
   { icon: "✨", msg: "Almost ready..." },
 ];
 
+function parseFilename(filename: string): { artist: string; title: string } {
+  const name = filename.replace(/\.[^/.]+$/, "").trim();
+  // Match "Artist - Title" or "Artist – Title", ignoring leading track numbers
+  const match = name.match(/^(?:\d+[\s._-]+)?(.+?)\s+[-–]\s+(.+)$/);
+  if (match) {
+    const artist = match[1].trim();
+    // Strip trailing parentheticals like (Remastered), [Official], etc.
+    const title = match[2]
+      .replace(/\s*[\(\[](?:remaster(?:ed)?|official|hd|hq|live|feat\.?|ft\.?)[^\)\]]*[\)\]]/gi, "")
+      .trim();
+    return { artist, title };
+  }
+  return { artist: "", title: name };
+}
+
 export default function HomePage() {
-  const [mode, setMode]         = useState<Mode>("search");
   const [state, setState]       = useState<AppState>("idle");
   const [stepIdx, setStepIdx]   = useState(0);
   const [statusMsg, setStatus]  = useState("");
@@ -40,40 +52,35 @@ export default function HomePage() {
     }
   }
 
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (!artist.trim() || !title.trim()) return;
+  const handleFile = useCallback(async (file: File) => {
+    // Auto-fill artist/title from filename if the fields are empty
+    const parsed = parseFilename(file.name);
+    const resolvedArtist = artist.trim() || parsed.artist;
+    const resolvedTitle  = title.trim()  || parsed.title;
+    setArtist(resolvedArtist);
+    setTitle(resolvedTitle);
+
     setState("loading");
     setStepIdx(0);
     setStatus(LOADING_STEPS[0].msg);
-    try {
-      const jobId = await submitFromSearch(artist.trim(), title.trim());
-      await runJob(jobId);
-    } catch (err) {
-      setState("error");
-      setStatus(err instanceof Error ? err.message : "Unknown error");
-    }
-  }
-
-  const handleFile = useCallback(async (file: File) => {
-    setState("loading");
-    setStepIdx(1);
-    setStatus(LOADING_STEPS[1].msg);
     setAudioUrl(URL.createObjectURL(file));
     try {
-      const jobId = await submitJob(file, artist.trim(), title.trim());
+      const jobId = await submitJob(file, resolvedArtist, resolvedTitle);
       await runJob(jobId);
     } catch (err) {
       setState("error");
       setStatus(err instanceof Error ? err.message : "Unknown error");
     }
-  }, [artist, title]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artist, title]);
 
   function reset() {
     setState("idle");
     setResult(null);
     setAudioUrl("");
     setStepIdx(0);
+    setArtist("");
+    setTitle("");
   }
 
   return (
@@ -98,7 +105,6 @@ export default function HomePage() {
           <p className="text-zinc-500 text-sm font-medium tracking-widest uppercase">
             Chords &nbsp;·&nbsp; Lyrics &nbsp;·&nbsp; Synchronized
           </p>
-          {/* Guitar strings decoration */}
           <div className="flex justify-center gap-3 mt-5">
             {[3, 5, 7, 5, 3].map((h, i) => (
               <div key={i} className="bg-zinc-700 rounded-full" style={{ width: 1 + i * 0.3, height: h * 4 }} />
@@ -110,28 +116,11 @@ export default function HomePage() {
         {(state === "idle" || state === "error") && (
           <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-6 flex flex-col gap-5 shadow-2xl backdrop-blur-sm">
 
-            {/* Mode tabs */}
-            <div className="flex bg-zinc-950 rounded-xl p-1 gap-1">
-              {(["search", "upload"] as Mode[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => { setMode(m); setState("idle"); }}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                    mode === m
-                      ? "bg-violet-600 text-white shadow-lg shadow-violet-900/50"
-                      : "text-zinc-500 hover:text-zinc-300"
-                  }`}
-                >
-                  {m === "search" ? "🔍  Search by name" : "🎵  Upload audio"}
-                </button>
-              ))}
-            </div>
-
             {/* Artist + title fields */}
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">
-                  Artist{mode === "upload" ? " (optional)" : ""}
+                  Artist <span className="normal-case font-normal">(optional)</span>
                 </label>
                 <input
                   type="text"
@@ -143,7 +132,7 @@ export default function HomePage() {
               </div>
               <div className="flex-1">
                 <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">
-                  Song title{mode === "upload" ? " (optional)" : ""}
+                  Song title <span className="normal-case font-normal">(optional)</span>
                 </label>
                 <input
                   type="text"
@@ -155,21 +144,11 @@ export default function HomePage() {
               </div>
             </div>
 
-            {mode === "search" && (
-              <form onSubmit={handleSearch}>
-                <button
-                  type="submit"
-                  disabled={!artist.trim() || !title.trim()}
-                  className="w-full py-3.5 bg-violet-600 hover:bg-violet-500 active:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-bold text-sm tracking-wide transition-all shadow-lg shadow-violet-900/40 hover:shadow-violet-800/60"
-                >
-                  Find on YouTube &amp; analyze
-                </button>
-              </form>
-            )}
+            <p className="text-zinc-600 text-xs text-center -mt-2">
+              Artist &amp; title are detected automatically from the filename — or fill them in for better chord &amp; lyric lookup
+            </p>
 
-            {mode === "upload" && (
-              <UploadZone onFile={handleFile} disabled={false} />
-            )}
+            <UploadZone onFile={handleFile} disabled={false} />
 
             {state === "error" && (
               <div className="bg-red-950/40 border border-red-800/50 rounded-xl px-4 py-3">
@@ -195,7 +174,6 @@ export default function HomePage() {
                 Stem separation + ML analysis takes 1–2 min
               </p>
             </div>
-            {/* Step progress dots */}
             <div className="flex items-center gap-2">
               {LOADING_STEPS.map((_, i) => (
                 <div
@@ -221,7 +199,7 @@ export default function HomePage() {
               onClick={reset}
               className="text-zinc-600 hover:text-zinc-400 text-sm text-center transition-colors py-2 tracking-wide"
             >
-              ← {mode === "search" ? "Search another song" : "Upload another song"}
+              ← Upload another song
             </button>
           </>
         )}
