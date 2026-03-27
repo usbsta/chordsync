@@ -151,12 +151,15 @@ def _detect_with_librosa(
       5. Minimum duration gate — chords shorter than min_chord_duration are merged
     """
     # 22050 Hz is standard for chord detection and halves memory vs 44100 Hz originals.
-    # Railway Hobby has limited RAM — loading at native rate causes OOM kills.
-    waveform, sr = librosa.load(wav_path, sr=22050, mono=True)
+    # Cap at 2 minutes — chord progressions repeat, so we get full coverage without
+    # loading the entire song. Avoids OOM on Railway Hobby's limited RAM.
+    waveform, sr = librosa.load(wav_path, sr=22050, mono=True,
+                                duration=120.0)
     hop_length = int(hop_seconds * sr)
 
-    harmonic, _ = librosa.effects.hpss(waveform, margin=3.0)
-    chroma = librosa.feature.chroma_cqt(y=harmonic, sr=sr, hop_length=hop_length)
+    # Skip HPSS — it duplicates the entire waveform in memory and the accuracy
+    # gain over raw CQT chroma is marginal for the librosa fallback path.
+    chroma = librosa.feature.chroma_cqt(y=waveform, sr=sr, hop_length=hop_length)
     chroma_smooth = _median_filter(chroma, smooth_frames)
 
     n_frames = chroma_smooth.shape[1]
